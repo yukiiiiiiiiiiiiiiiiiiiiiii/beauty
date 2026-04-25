@@ -1,136 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自适应背景 + 毛玻璃按钮</title>
     <style>
-    @font-face {
-            font-family: "RomanYaYuan";
-            src: local("RomanYaYuan"),
-                 url("./lmyy.ttf") format("truetype");
-            font-display: swap;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: url('http://192.168.1.55:1234') no-repeat center center;
-            background-size: cover;
-        }
-
-        /* 按钮容器（默认隐藏） */
-        .button-container {
-            position: absolute;
-            width: 60%;
-            display: none;
-            flex-direction: column;
-            gap: 30px;
-            animation: fadeIn 0.3s ease;
-        }
-
-        /* 毛玻璃按钮样式 */
-        .glass-button {
-            display: flex;
-            align-items: center;
-            min-height: 100px; /* 最小高度 */
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(1px);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            box-sizing: border-box;
-            padding: 0 15px; /* 改用内边距控制间距 */
-        }
-
-        /* 按钮点击动画 */
-        .glass-button:active {
-            transform: scale(0.95);
-            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        
-        /* 按钮文字（垂直居中） */
-        .glass-button span {
-            flex-grow: 1; /* 文字占据剩余空间 */
-            line-height: 1.2; /* 调整行高 */
-            font-size: 48px; /* 可根据需要调整 */
-            color: #ff0099;
-            font-family: "RomanYaYuan", "Microsoft YaHei", sans-serif;
-        }
-
-        /* 淡入动画 */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+        img { width: 100%; height: 100%; object-fit: cover; } /* 确保图片铺满全屏且不变形 */
     </style>
 </head>
 <body>
-    <!-- 按钮容器（初始隐藏） -->
-    <div class="button-container" id="buttonContainer">
-        <a href="http://192.168.1.55:5244" style="text-decoration: none;">
-        <button class="glass-button">
-            <div class="button-icon"></div>
-            <img src="http://192.168.1.55:8080/yuki/1/1.png" alt="替代文本" height="80">
-            <span>OpenList</span>
-        </button>
-        </a>
-        <a href="http://192.168.1.55:8115" style="text-decoration: none;">
-        <button class="glass-button">
-            <div class="button-icon"></div>
-            <img src="http://192.168.1.55:8080/yuki/1/5.png" alt="替代文本" height="80">
-            <span>影视转存</span>
-        </button>
-        </a>
-        <a href="http://192.168.1.55:35522" style="text-decoration: none;">
-        <button class="glass-button">
-            <div class="button-icon"></div>
-            <img src="http://192.168.1.55:8080/yuki/1/2.png" alt="替代文本" height="80">
-            <span>杂志</span>
-        </button>
-        </a>
-        <a href="http://192.168.1.55:35521" style="text-decoration: none;">
-        <button class="glass-button">
-            <div class="button-icon"></div>
-            <img src="http://192.168.1.55:8080/yuki/1/2.png" alt="替代文本" height="80">
-            <span>图集</span>
-        </button>
-        </a>
-        <a href="http://192.168.1.55:3003" style="text-decoration: none;">
-        <button class="glass-button">
-            <div class="button-icon"></div>
-            <img src="http://192.168.1.55:8080/yuki/1/4.png" alt="替代文本" height="80">
-            <span>MoonTV</span>
-        </button>
-        </a>
-    </div>
-
+    <img id="bg" src="" alt="loading...">
     <script>
-        // 点击屏幕任意位置显示/隐藏按钮
-        document.body.addEventListener('click', function(e) {
-            const buttonContainer = document.getElementById('buttonContainer');
-            
-            // 如果点击的是按钮本身，不触发隐藏
-            if (e.target.closest('.glass-button')) {
-                return;
-            }
+        const pcPics = ['p1.jpg', 'p2.jpg']; // 存放横屏图片路径
+        const mobilePics = [
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANaaewwZ93txJFY6s1QTfsb9fL7Ta8AAo8Paxs182BXa42q2GZi0moBAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANYaewwYgIHQOmmNGr31T11QTn0qREAAo4Paxs182BXNBNuI8p1hqQBAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANWaewwXbDomdqROqauELBqkxTa4sAAAo0Paxs182BXD0vRau5MPS0BAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANUaewwWX3F3v36-OMLmb8lVJtALmIAAowPaxs182BXAAEvO11mGJ92AQADAgADdwADOwQ.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANSaewwVlAJLkAX1FhbZcE-UDmUdzwAAosPaxs182BXX7hwX1NOf_cBAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANQaewwU4i_nqg-vxx4YRcKjaFDgSQAAooPaxs182BXUlekH2pG4MsBAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANOaewwTX1EB0aahVjDAwMBjI2NuKwAAokPaxs182BX9QQQExs9XwUBAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANMaewwSvGbMoBSIezNVC1pAZPvUFQAAogPaxs182BXr84vj5krV0QBAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANKaewwRYCTl9TTy5TiX0zMWvDU2R0AAocPaxs182BX9KyCaiQIPHEBAAMCAAN3AAM7BA.jpg',
+        'https://k-vault-18l.pages.dev/file/AgACAgUAAyEGAATmY_EuAANIaewwPTiq4BUasMS7rMryCXN6OVcAAoYPaxs182BXWXdo55L-Kt0BAAMCAAN3AAM7BA.jpg']; // 存放竖屏图片路径
 
-            // 切换按钮显示状态
-            if (buttonContainer.style.display === 'flex') {
-                buttonContainer.style.display = 'none';
-            } else {
-                buttonContainer.style.display = 'flex';
-            }
-        });
+        function loadRandomPic() {
+            const isPortrait = window.innerHeight > window.innerWidth; // 判断是否为竖屏 
+            const list = isPortrait ? mobilePics : pcPics;
+            const randomImg = list[Math.floor(Math.random() * list.length)];
+            document.getElementById('bg').src = randomImg;
+        }
+
+        window.onload = loadRandomPic;
+        window.onresize = loadRandomPic; // 屏幕尺寸变化时自动切换 
     </script>
 </body>
 </html>
