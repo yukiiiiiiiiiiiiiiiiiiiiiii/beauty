@@ -1,53 +1,136 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>随机图片</title>
+    <title>自适应背景 + 毛玻璃按钮</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+    @font-face {
+            font-family: "RomanYaYuan";
+            src: local("RomanYaYuan"),
+                 url("./lmyy.ttf") format("truetype");
+            font-display: swap;
         }
         body {
-            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            background: #111;
+            background: url('http://192.168.1.55:1234') no-repeat center center;
+            background-size: cover;
         }
-        #img {
-            max-width: 95vw;
-            max-height: 95vh;
-            object-fit: contain;
+
+        /* 按钮容器（默认隐藏） */
+        .button-container {
+            position: absolute;
+            width: 60%;
+            display: none;
+            flex-direction: column;
+            gap: 30px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* 毛玻璃按钮样式 */
+        .glass-button {
+            display: flex;
+            align-items: center;
+            min-height: 100px; /* 最小高度 */
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(1px);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0 15px; /* 改用内边距控制间距 */
+        }
+
+        /* 按钮点击动画 */
+        .glass-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        
+        /* 按钮文字（垂直居中） */
+        .glass-button span {
+            flex-grow: 1; /* 文字占据剩余空间 */
+            line-height: 1.2; /* 调整行高 */
+            font-size: 48px; /* 可根据需要调整 */
+            color: #ff0099;
+            font-family: "RomanYaYuan", "Microsoft YaHei", sans-serif;
+        }
+
+        /* 淡入动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
-<img id="img" alt="">
+    <!-- 按钮容器（初始隐藏） -->
+    <div class="button-container" id="buttonContainer">
+        <a href="http://192.168.1.55:5244" style="text-decoration: none;">
+        <button class="glass-button">
+            <div class="button-icon"></div>
+            <img src="http://192.168.1.55:8080/yuki/1/1.png" alt="替代文本" height="80">
+            <span>OpenList</span>
+        </button>
+        </a>
+        <a href="http://192.168.1.55:8115" style="text-decoration: none;">
+        <button class="glass-button">
+            <div class="button-icon"></div>
+            <img src="http://192.168.1.55:8080/yuki/1/5.png" alt="替代文本" height="80">
+            <span>影视转存</span>
+        </button>
+        </a>
+        <a href="http://192.168.1.55:35522" style="text-decoration: none;">
+        <button class="glass-button">
+            <div class="button-icon"></div>
+            <img src="http://192.168.1.55:8080/yuki/1/2.png" alt="替代文本" height="80">
+            <span>杂志</span>
+        </button>
+        </a>
+        <a href="http://192.168.1.55:35521" style="text-decoration: none;">
+        <button class="glass-button">
+            <div class="button-icon"></div>
+            <img src="http://192.168.1.55:8080/yuki/1/2.png" alt="替代文本" height="80">
+            <span>图集</span>
+        </button>
+        </a>
+        <a href="http://192.168.1.55:3003" style="text-decoration: none;">
+        <button class="glass-button">
+            <div class="button-icon"></div>
+            <img src="http://192.168.1.55:8080/yuki/1/4.png" alt="替代文本" height="80">
+            <span>MoonTV</span>
+        </button>
+        </a>
+    </div>
 
-<script>
-// ======================================
-// 你只需要在这里添加你的图片名字！
-// ======================================
-const landscapeImages = [
-  "landscape/1.jpg"
-  // 以后加图：直接加一行 "landscape/4.jpg"
-];
+    <script>
+        // 点击屏幕任意位置显示/隐藏按钮
+        document.body.addEventListener('click', function(e) {
+            const buttonContainer = document.getElementById('buttonContainer');
+            
+            // 如果点击的是按钮本身，不触发隐藏
+            if (e.target.closest('.glass-button')) {
+                return;
+            }
 
-const portraitImages = [
-  "portrait/1.jpg"
-  // 以后加图：直接加一行 "portrait/4.jpg"
-];
-
-// 自动判断横竖屏
-const isLandscape = window.innerWidth > window.innerHeight;
-const images = isLandscape ? landscapeImages : portraitImages;
-const randomImg = images[Math.floor(Math.random() * images.length)];
-
-// 显示图片
-document.getElementById("img").src = randomImg;
-</script>
+            // 切换按钮显示状态
+            if (buttonContainer.style.display === 'flex') {
+                buttonContainer.style.display = 'none';
+            } else {
+                buttonContainer.style.display = 'flex';
+            }
+        });
+    </script>
 </body>
 </html>
