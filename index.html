@@ -1,0 +1,534 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U 智能播放器</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- HLS.js for M3U8 support -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; 
+        }
+        
+        .glass-effect {
+            background: rgba(31, 41, 55, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            background: #000;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+        }
+
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .channel-item.active {
+            background-color: rgba(59, 130, 246, 0.2);
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite; /* Safari */
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6 shadow-lg z-10">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-play-circle text-blue-500 text-2xl"></i>
+            <h1 class="text-xl font-bold tracking-wide">M3U Stream Player</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <button onclick="document.getElementById('fileInput').click()" class="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium">
+                <i class="fa-solid fa-file-import"></i> 导入本地文件
+            </button>
+            <input type="file" id="fileInput" accept=".m3u,.m3u8" class="hidden">
+            
+            <button onclick="toggleUrlModal()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-sm font-medium shadow-md shadow-blue-500/20">
+                <i class="fa-solid fa-link"></i> 输入URL
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar: Playlist -->
+        <aside class="w-80 bg-gray-800 border-r border-gray-700 flex flex-col z-0">
+            <!-- Search & Stats -->
+            <div class="p-4 border-b border-gray-700 space-y-3">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="searchInput" placeholder="搜索频道..." class="w-full bg-gray-900 border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div class="flex justify-between text-xs text-gray-400">
+                    <span id="channelCount">0 个频道</span>
+                    <span id="groupInfo">全部组</span>
+                </div>
+            </div>
+
+            <!-- Channel List -->
+            <div id="channelList" class="flex-1 overflow-y-auto p-2 space-y-1">
+                <!-- Channels will be injected here -->
+                <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                    <i class="fa-solid fa-list-ul text-4xl mb-3 opacity-50"></i>
+                    <p class="text-sm">暂无播放列表</p>
+                    <p class="text-xs mt-1">请导入 .m3u 文件或输入URL</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Video Area -->
+        <section class="flex-1 bg-gray-900 flex flex-col relative">
+            <!-- Player Container -->
+            <div class="flex-1 p-6 flex flex-col justify-center items-center bg-gradient-to-br from-gray-900 to-gray-800">
+                <div class="w-full max-w-5xl video-container group">
+                    <video id="videoPlayer" controls crossorigin="anonymous"></video>
+                    
+                    <!-- Overlay Info (Hidden by default) -->
+                    <div id="playerOverlay" class="absolute top-4 left-4 bg-black/60 px-3 py-1 rounded text-sm text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <span id="currentChannelName">未播放</span>
+                    </div>
+                </div>
+
+                <!-- Controls / Info below video -->
+                <div class="w-full max-w-5xl mt-6 flex justify-between items-start">
+                    <div>
+                        <h2 id="nowPlayingTitle" class="text-2xl font-bold text-white mb-1">等待播放...</h2>
+                        <p id="nowPlayingGroup" class="text-gray-400 text-sm"><i class="fa-solid fa-tag mr-1"></i> --</p>
+                    </div>
+                    <div class="flex gap-2">
+                         <button onclick="toggleFullscreen()" class="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors" title="全屏">
+                            <i class="fa-solid fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- URL Input Modal -->
+    <div id="urlModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6 transform scale-95 transition-transform duration-300" id="urlModalContent">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white">加载远程 M3U 列表</h3>
+                <button onclick="toggleUrlModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">M3U 文件 URL</label>
+                    <input type="text" id="remoteUrlInput" placeholder="https://example.com/playlist.m3u" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
+                    <p class="text-xs text-gray-500 mt-1">注意：远程URL需要支持CORS跨域访问。</p>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button onclick="toggleUrlModal()" class="px-4 py-2 text-gray-300 hover:text-white text-sm">取消</button>
+                    <button onclick="loadRemoteUrl()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium shadow-lg shadow-blue-500/30">
+                        <span id="loadBtnText">加载</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 border-l-4 border-blue-500 text-white px-6 py-4 rounded shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+        <i id="toastIcon" class="fa-solid fa-info-circle text-blue-500"></i>
+        <span id="toastMessage">Notification</span>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let playlist = [];
+        let filteredPlaylist = [];
+        let hls = null;
+        const video = document.getElementById('videoPlayer');
+
+        // --- DOM Elements ---
+        const channelListEl = document.getElementById('channelList');
+        const searchInput = document.getElementById('searchInput');
+        const fileInput = document.getElementById('fileInput');
+        const channelCountEl = document.getElementById('channelCount');
+        const nowPlayingTitleEl = document.getElementById('nowPlayingTitle');
+        const nowPlayingGroupEl = document.getElementById('nowPlayingGroup');
+        const currentChannelNameEl = document.getElementById('currentChannelName');
+        const urlModal = document.getElementById('urlModal');
+        const urlModalContent = document.getElementById('urlModalContent');
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load from localStorage if available
+            const savedPlaylist = localStorage.getItem('m3u_playlist');
+            if (savedPlaylist) {
+                try {
+                    playlist = JSON.parse(savedPlaylist);
+                    filterAndRender();
+                    showToast('已恢复上次播放列表', 'success');
+                } catch (e) {
+                    console.error('Failed to parse saved playlist', e);
+                }
+            }
+        });
+
+        // --- Event Listeners ---
+        fileInput.addEventListener('change', handleFileUpload);
+        searchInput.addEventListener('input', (e) => {
+            filterAndRender(e.target.value);
+        });
+
+        // --- Core Logic: Parsing M3U ---
+        function parseM3U(content) {
+            const lines = content.split(/\r?\n/);
+            const result = [];
+            let currentItem = {};
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line) continue;
+
+                if (line.startsWith('#EXTINF:')) {
+                    // Parse EXTINF
+                    // Format: #EXTINF:-1 tvg-id="xxx" tvg-name="yyy" tvg-logo="url" group-title="Group",Channel Name
+                    const info = line.substring(8); // Remove #EXTINF:
+                    
+                    // Extract Group Title
+                    const groupMatch = info.match(/group-title="([^"]*)"/);
+                    const group = groupMatch ? groupMatch : '未分组';
+
+                    // Extract Logo
+                    const logoMatch = info.match(/tvg-logo="([^"]*)"/);
+                    const logo = logoMatch ? logoMatch : '';
+
+                    // Extract Name (after the last comma)
+                    const nameParts = info.split(',');
+                    const name = nameParts[nameParts.length - 1].trim();
+
+                    currentItem = {
+                        name: name || '未知频道',
+                        group: group,
+                        logo: logo,
+                        url: ''
+                    };
+                } else if (!line.startsWith('#')) {
+                    // This is the URL line
+                    if (currentItem.name) {
+                        currentItem.url = line;
+                        result.push(currentItem);
+                        currentItem = {}; // Reset
+                    }
+                }
+            }
+            return result;
+        }
+
+        // --- File Handling ---
+        function handleFileUpload(event) {
+            const file = event.target.files;
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                processPlaylistContent(content);
+            };
+            reader.readAsText(file);
+        }
+
+        // --- Remote URL Handling ---
+        async function loadRemoteUrl() {
+            const url = document.getElementById('remoteUrlInput').value.trim();
+            if (!url) {
+                showToast('请输入有效的URL', 'error');
+                return;
+            }
+
+            const btnText = document.getElementById('loadBtnText');
+            const originalText = btnText.innerText;
+            btnText.innerHTML = '<div class="loader inline-block"></div> 加载中...';
+
+            try {
+                // Note: This might fail due to CORS if the server doesn't allow it.
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const content = await response.text();
+                processPlaylistContent(content);
+                toggleUrlModal();
+                showToast('远程列表加载成功', 'success');
+            } catch (error) {
+                console.error(error);
+                showToast('加载失败: 可能是跨域(CORS)限制或链接无效', 'error');
+            } finally {
+                btnText.innerText = originalText;
+            }
+        }
+
+        function processPlaylistContent(content) {
+            const parsed = parseM3U(content);
+            if (parsed.length === 0) {
+                showToast('未解析到任何频道', 'error');
+                return;
+            }
+            playlist = parsed;
+            // Save to local storage
+            localStorage.setItem('m3u_playlist', JSON.stringify(playlist));
+            filterAndRender();
+            showToast(`成功加载 ${parsed.length} 个频道`, 'success');
+        }
+
+        // --- Rendering ---
+        function filterAndRender(query = '') {
+            const lowerQuery = query.toLowerCase();
+            filteredPlaylist = playlist.filter(item => 
+                item.name.toLowerCase().includes(lowerQuery) || 
+                item.group.toLowerCase().includes(lowerQuery)
+            );
+
+            channelCountEl.innerText = `${filteredPlaylist.length} 个频道`;
+            
+            // Group by category for better display if needed, but flat list is requested for simplicity with search
+            renderList(filteredPlaylist);
+        }
+
+        function renderList(items) {
+            channelListEl.innerHTML = '';
+            
+            if (items.length === 0) {
+                channelListEl.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-40 text-gray-500">
+                        <p class="text-sm">未找到匹配频道</p>
+                    </div>`;
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            
+            // Optimization: Render only first 100 items if list is huge to prevent freeze, 
+            // or implement virtual scroll. For this demo, we render all but keep DOM light.
+            // Let's limit initial render to 200 for performance safety in vanilla JS
+            const renderLimit = 200;
+            const displayItems = items.slice(0, renderLimit);
+
+            displayItems.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'channel-item p-3 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors flex items-center gap-3 group';
+                div.onclick = () => playChannel(item, div);
+                
+                // Logo placeholder or icon
+                let logoHtml = '';
+                if (item.logo) {
+                    logoHtml = `<img src="${item.logo}" class="w-8 h-8 rounded object-cover bg-gray-800" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`;
+                }
+                
+                div.innerHTML = `
+                    <div class="relative w-8 h-8 flex-shrink-0">
+                        ${logoHtml}
+                        <div class="absolute inset-0 flex items-center justify-center bg-gray-700 rounded text-gray-400 ${item.logo ? 'hidden' : ''}">
+                            <i class="fa-solid fa-tv text-xs"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-sm font-medium text-gray-200 truncate group-hover:text-white">${item.name}</h4>
+                        <p class="text-xs text-gray-500 truncate">${item.group}</p>
+                    </div>
+                    <i class="fa-solid fa-play text-xs text-gray-600 group-hover:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                `;
+                fragment.appendChild(div);
+            });
+
+            if (items.length > renderLimit) {
+                const moreDiv = document.createElement('div');
+                moreDiv.className = 'p-2 text-center text-xs text-gray-500 italic';
+                moreDiv.innerText = `... 还有 ${items.length - renderLimit} 个频道 (请搜索)`;
+                fragment.appendChild(moreDiv);
+            }
+
+            channelListEl.appendChild(fragment);
+        }
+
+        // --- Playback Logic ---
+        function playChannel(item, element) {
+            // UI Update
+            document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+            if(element) element.classList.add('active');
+
+            nowPlayingTitleEl.innerText = item.name;
+            nowPlayingGroupEl.innerHTML = `<i class="fa-solid fa-tag mr-1"></i> ${item.group}`;
+            currentChannelNameEl.innerText = item.name;
+
+            const url = item.url;
+
+            // Destroy previous HLS instance
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+
+            // Check if HLS is supported (for .m3u8)
+            if (Hls.isSupported() && (url.includes('.m3u8') || !isNativeSupported())) {
+                hls = new Hls({
+                    debug: false,
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                });
+                
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play().catch(e => console.log("Auto-play prevented:", e));
+                });
+
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                console.log("fatal network error encountered, try to recover");
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                console.log("fatal media error encountered, try to recover");
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari)
+                video.src = url;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                });
+            } else {
+                // Fallback for standard MP4/WebM if not m3u8
+                video.src = url;
+                video.play().catch(e => {
+                    showToast('无法播放该格式或链接无效', 'error');
+                });
+            }
+        }
+
+        function isNativeSupported() {
+            return video.canPlayType('application/vnd.apple.mpegurl');
+        }
+
+        // --- Utilities ---
+        function toggleUrlModal() {
+            const isHidden = urlModal.classList.contains('hidden');
+            if (isHidden) {
+                urlModal.classList.remove('hidden');
+                // Small delay to allow display:block to apply before opacity transition
+                setTimeout(() => {
+                    urlModal.classList.remove('opacity-0');
+                    urlModalContent.classList.remove('scale-95');
+                    urlModalContent.classList.add('scale-100');
+                }, 10);
+                document.getElementById('remoteUrlInput').focus();
+            } else {
+                urlModal.classList.add('opacity-0');
+                urlModalContent.classList.remove('scale-100');
+                urlModalContent.classList.add('scale-95');
+                setTimeout(() => {
+                    urlModal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                if (video.requestFullscreen) {
+                    video.requestFullscreen();
+                } else if (video.webkitRequestFullscreen) { /* Safari */
+                    video.webkitRequestFullscreen();
+                } else if (video.msRequestFullscreen) { /* IE11 */
+                    video.msRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = message;
+            
+            if (type === 'error') {
+                toast.classList.replace('border-blue-500', 'border-red-500');
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-red-500';
+            } else if (type === 'success') {
+                toast.classList.replace('border-blue-500', 'border-green-500');
+                toastIcon.className = 'fa-solid fa-check-circle text-green-500';
+            } else {
+                toast.classList.replace('border-red-500', 'border-blue-500');
+                toast.classList.replace('border-green-500', 'border-blue-500');
+                toastIcon.className = 'fa-solid fa-info-circle text-blue-500';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Close modal on outside click
+        urlModal.addEventListener('click', (e) => {
+            if (e.target === urlModal) toggleUrlModal();
+        });
+
+    </script>
+</body>
+</html>
